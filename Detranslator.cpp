@@ -5,38 +5,56 @@
 If Disassembly gets true as input parameter it will output in stdout
 otherwise you need to put in a file to output code
 !*/
-void Disassembly(bool is_stdin, bool is_stdout) {
+void Disassembly() {
     fprintf(stdout, "Disassembling...\n");
-    if (is_stdin == true) {
-        fprintf(stdout, "Enter code:\n");
-    }
 
     struct Files_data files_data;
-    OpenTranslationFiles(&files_data, is_stdin, is_stdout);
+    OpenTranslationFiles(&files_data, false);
 
-    int command_no = -1;
+    int pos = 0;
+    int commands_count = 0;
 
-    fscanf(files_data.fp_in, "%d", &command_no);
-    while (!feof(files_data.fp_in)) {
+    char* code_file = UnpackFile(&files_data, &pos, &commands_count);
 
-        for (int i = 0; i < COMMANDS_COUNT; ++i) {
-            if(codificator[i].code == command_no) {
-                if (codificator[i].code == PUSH) {
-                    float value = 0;
-                    fscanf(files_data.fp_in, "%g", &value);
-                    fprintf(files_data.fp_out, "%s %g\n", codificator[i].name, value);
+    printf("pos: %d, count: %d\n", pos, commands_count);
+
+    for (int i = 0; i < commands_count; ++i) {
+        char command_no = code_file[pos++];
+        printf("pos: %d\n", pos);
+
+        for (int j = 0; j < COMMANDS_COUNT; ++j) {
+            if (codificator[j].code == command_no) {
+                if (codificator[j].code == PUSH) {
+                    fprintf(files_data.fp_out, "%s ", codificator[j].name);
+                    fprintf(files_data.fp_out, "%g\n", *(type_t*) (code_file + pos));
+                    pos += sizeof(type_t);
+                }
+                else if (codificator[j].code == REG_PUSH || codificator[j].code == REG_POP) {
+                    fprintf(files_data.fp_out, "%s ", codificator[j].name);
+                    int register_position = code_file[pos++];
+                    switch (register_position) {
+
+                        case RAX: fprintf(files_data.fp_out, "rax\n");
+                            break;
+                        case RBX: fprintf(files_data.fp_out, "rbx\n");
+                            break;
+                        case RCX: fprintf(files_data.fp_out, "rcx\n");
+                            break;
+                        case RDX: fprintf(files_data.fp_out, "rdx\n");
+                            break;
+                        default : fprintf(stderr,"Register with pos <%d> doesn't exist", register_position);
+                    }
                 }
                 else {
-                    fprintf(files_data.fp_out, "%s\n", codificator[i].name);
+                    fprintf(files_data.fp_out, "%s\n", codificator[j].name);
                 }
-            }
-            else {
-                fprintf(stderr, "Unknown command: <%s>\n");
-                exit(1);
+            break;
             }
         }
-        fscanf(files_data.fp_in, "%d", &command_no);
     }
+
+    free(code_file);
+         code_file = NULL;
 
     CloseFiles(&files_data);
 
@@ -45,25 +63,8 @@ void Disassembly(bool is_stdin, bool is_stdout) {
 
 
 int main(int argc, char *argv[]) {
-    bool is_stdin  = false;
-    bool is_stdout = false;
 
-    if (argc > 1) {
-
-        for (int i = 1; i < argc; i++) {
-            if (strcmp(argv[i], "--screen_in") == 0) {
-                is_stdin = true;
-            }
-            else if (strcmp(argv[i], "--screen_out") == 0) {
-                is_stdout = true;
-            }
-            else {
-                fprintf(stderr,"Unknown command : %s\n", argv[i]);
-            }
-        }
-    }
-
-    Disassembly(is_stdin, is_stdout);
+    Disassembly();
 
     return 0;
 }

@@ -15,9 +15,9 @@ const int INCREASE_LEVEL = 2;
 const int DECREASE_LEVEL = 4;
 
 #ifdef BARANOV_V_V_DEBUG
-typedef uint64_t canary_t;
+typedef uint64_t stack_canary_t;
 typedef int64_t hash_t;
-const canary_t CANARY = 0xBAAADCFEFEBDCBFE;
+const stack_canary_t STACK_CANARY = 0xBAAADCFEFEBDCBFE;
 #endif // BARANOV_V_V_DEBUG
 
 /*!
@@ -123,7 +123,7 @@ typedef float Type_t;
 
 struct StackArray {
     #ifdef BARANOV_V_V_DEBUG
-    canary_t canary_begin;
+    stack_canary_t canary_begin;
     #endif // BARANOV_V_V_DEBUG
 
     #ifdef BARANOV_V_V_DEBUG
@@ -140,7 +140,7 @@ struct StackArray {
     Type_t* data_;
 
     #ifdef BARANOV_V_V_DEBUG
-    canary_t canary_end;
+    stack_canary_t canary_end;
     #endif // BARANOV_V_V_DEBUG
 };
 
@@ -292,16 +292,16 @@ StackErrors StackOk(struct StackArray* stack) {
     }
 
     #ifdef BARANOV_V_V_DEBUG
-    if(*(canary_t*)((char*)stack->data_ - sizeof(canary_t)) != CANARY) {
+    if(*(stack_canary_t*)((char*)stack->data_ - sizeof(stack_canary_t)) != STACK_CANARY) {
         return BEGIN_DATA_CANARY_ERROR;
     }
-    if(*(canary_t*)((char*)stack->data_ + (stack->capacity_ + 1) * sizeof(Type_t)) != CANARY) {
+    if(*(stack_canary_t*)((char*)stack->data_ + (stack->capacity_ + 1) * sizeof(Type_t)) != STACK_CANARY) {
         return END_DATA_CANARY_ERROR;
     }
-    if(stack->canary_begin != CANARY) {
+    if(stack->canary_begin != STACK_CANARY) {
         return BEGIN_STACK_CANARY_ERROR;
     }
-    if(stack->canary_end != CANARY) {
+    if(stack->canary_end != STACK_CANARY) {
         return END_STACK_CANARY_ERROR;
     }
     #endif // BARANOV_V_V_DEBUG
@@ -330,13 +330,13 @@ void StackRealloc(struct StackArray* stack, int_t new_capacity) {
 
     #ifdef BARANOV_V_V_DEBUG
 
-    void* data_tmp = realloc((char*)stack->data_ - sizeof(canary_t), sizeof(Type_t) * new_capacity + 2 * sizeof(canary_t));
+    void* data_tmp = realloc((char*)stack->data_ - sizeof(stack_canary_t), sizeof(Type_t) * new_capacity + 2 * sizeof(stack_canary_t));
     assert(data_tmp != NULL);
 
-    stack->data_ = (Type_t*)((char*)data_tmp + sizeof(canary_t));
+    stack->data_ = (Type_t*)((char*)data_tmp + sizeof(stack_canary_t));
 
-    *(canary_t*)((char*)stack->data_ - sizeof(canary_t)) = CANARY;
-    *(canary_t*)((char*)stack->data_ + (new_capacity + 1) * sizeof(Type_t)) = CANARY;
+    *(stack_canary_t*)((char*)stack->data_ - sizeof(stack_canary_t)) = STACK_CANARY;
+    *(stack_canary_t*)((char*)stack->data_ + (new_capacity + 1) * sizeof(Type_t)) = STACK_CANARY;
 
     #else
 
@@ -367,10 +367,10 @@ void StackDump(struct StackArray* stack, const char* file_name, FILE* fp, StackE
     fprintf(fp, "    Stack hash value: %lld\n\n", stack->stack_hash);
 
     fprintf(fp,"    Canary type |  Initial value   |  Current value\n");
-    fprintf(fp,"    Stack begin | %llX | %llX\n", CANARY, stack->canary_begin);
-    fprintf(fp,"    Stack end   | %llX | %llX\n", CANARY, stack->canary_begin);
-    fprintf(fp,"    Data begin  | %llX | %llX\n", *(canary_t*)((char*)stack->data_ - sizeof(canary_t)));
-    fprintf(fp,"    Data end    | %llX | %llX\n", *(canary_t*)((char*)stack->data_ + (stack->capacity_ + 1) * sizeof(Type_t)));
+    fprintf(fp,"    Stack begin | %llX | %llX\n", STACK_CANARY, stack->canary_begin);
+    fprintf(fp,"    Stack end   | %llX | %llX\n", STACK_CANARY, stack->canary_end);
+    fprintf(fp,"    Data begin  | %llX | %llX\n", STACK_CANARY, *(stack_canary_t*)((char*)stack->data_ - sizeof(stack_canary_t)));
+    fprintf(fp,"    Data end    | %llX | %llX\n", STACK_CANARY, *(stack_canary_t*)((char*)stack->data_ + (stack->capacity_ + 1) * sizeof(Type_t)));
     #endif // BARANOV_V_V_DEBUG
 
     fprintf(fp, "\n    {\n");
@@ -473,13 +473,13 @@ Error_t Construct(int start_size, struct StackArray* new_stack) {
 
     #ifdef BARANOV_V_V_DEBUG
 
-    void* data_tmp = calloc(1, sizeof(Type_t) * start_size + 2 * sizeof(canary_t));
+    void* data_tmp = calloc(1, sizeof(Type_t) * start_size + 2 * sizeof(stack_canary_t));
     assert(data_tmp != NULL);
 
-    new_stack->data_ = (Type_t*)((char*)data_tmp + sizeof(canary_t));
+    new_stack->data_ = (Type_t*)((char*)data_tmp + sizeof(stack_canary_t));
 
-    *(canary_t*)((char*)new_stack->data_ - sizeof(canary_t)) = CANARY;
-    *(canary_t*)((char*)new_stack->data_ + (start_size + 1) * sizeof(Type_t)) = CANARY;
+    *(stack_canary_t*)((char*)new_stack->data_ - sizeof(stack_canary_t)) = STACK_CANARY;
+    *(stack_canary_t*)((char*)new_stack->data_ + (start_size + 1) * sizeof(Type_t)) = STACK_CANARY;
 
     #else
 
@@ -561,7 +561,7 @@ Error_t Destroy(struct StackArray* stack) {
 
     #ifdef BARANOV_V_V_DEBUG
 
-    free(stack->data_ - sizeof(canary_t));
+    free(stack->data_ - sizeof(stack_canary_t));
 
     #else
 

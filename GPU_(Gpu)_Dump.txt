@@ -1,0 +1,26 @@
+Error code : 2 (COMMANDS COUNT IS INVALID)
+
+adress of GPU: [0061fea8]
+{
+    version: 1
+    current command: 5
+    commands count: -100
+    code adress: [00710db4]
+
+    position in code : 9
+    01 01 1C 01 0B 00 00 80 
+    -----------------------
+    40 05 1B 01 05 00 
+    ---^-------------
+
+    Canary type |  Initial value   |  Current value
+    GPU begin   | BAAADCFEFEBDCBFE | BAAADCFEFEBDCBFE
+    GPU end     | BAAADCFEFEBDCBFE | BAAADCFEFEBDCBFE
+    Code begin  | BAAADCFEFEBDCBFE | BAAADCFEFEBDCBFE
+    Code end    | BAAADCFEFEBDCBFE | BAAADCFEFEBDCBFE
+
+    RAX value: 1
+    RBX value: 0
+    RCX value: 0
+    RDX value: 0
+}
