@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdint.h>
+#include <iostream>
 
 
 const int REALLOC_VALUE = 2;
@@ -68,11 +69,11 @@ static const char* ErrorNames[] = {
     "DATA HASH VALUES DOES NOT MATCH"
 };
 
-#define DUMP(stack, StackErrors) {                                                \
-    const char* file_name = "Stack_(" #stack ")_Dump.txt";                       \
-    FILE* fp = fopen(file_name, "w");                                            \
-    StackDump(stack, file_name, fp, StackErrors);                                \
-    fclose(fp); \
+#define DUMP(stack, StackErrors) {                                  \
+    const char* file_name = "Stack_(" #stack ")_Dump.txt";          \
+    FILE* fp = fopen(file_name, "w");                               \
+    StackDump(stack, file_name, stdout, StackErrors);               \
+    fclose(fp);                                                     \
     }
 
 static StackErrors error_no;
@@ -92,8 +93,7 @@ static StackErrors error_no;
         assert(!"OK");                                  \
     }
 
-#define HASHSTACK(stack) \
-    HashStack(stack);
+#define HASHSTACK(stack)
 
 #else
 
@@ -228,6 +228,7 @@ void StackRealloc(struct StackArray* stack, int_t new_capacity);
 
 Error_t ShrinkToFit(struct StackArray* stack);
 
+const int start = 5000;
 
 #ifdef BARANOV_V_V_DEBUG
 
@@ -271,13 +272,6 @@ void HashStack(struct StackArray* stack) {
 StackErrors StackOk(struct StackArray* stack) {
     assert(stack != NULL);
 
-    #ifdef BARANOV_V_V_DEBUG
-    hash_t data_hash_tmp = stack->data_hash;
-    hash_t stack_hash_tmp = stack->stack_hash;
-    #endif // BARANOV_V_V_DEBUG
-
-    HASHSTACK(stack);
-
     if (stack->size_ < 0) {
         return INVALID_SIZE;
     }
@@ -304,44 +298,58 @@ StackErrors StackOk(struct StackArray* stack) {
     if(stack->canary_end != STACK_CANARY) {
         return END_STACK_CANARY_ERROR;
     }
-    #endif // BARANOV_V_V_DEBUG
+    #endif
 
-    for (int i = stack->size_; i < stack->capacity_; i++) {
-        if ( isfinite(stack->data_[i]) != 0 ) {
+    /*for (int i = stack->size_; i < stack->capacity_; i++) {
+        if ( (std::isfinite(stack->data_[i])) != 0 ) {
             return POISON_ERROR;
         }
-    }
-
-    #ifdef BARANOV_V_V_DEBUG
-    if (stack->data_hash != data_hash_tmp) {
-        return DATA_HASH_ERROR;
-    }
-    if (stack->stack_hash != stack_hash_tmp) {
-        return STACK_HASH_ERROR;
-    }
-    #endif // BARANOV_V_V_DEBUG
+    } */
 
     return OK;
 }
 
-void StackRealloc(struct StackArray* stack, int_t new_capacity) {
+void StackRealloc(struct StackArray* stack, int_t old_capacity) {
     assert(stack != NULL);
-    assert(new_capacity >= 0);
+    assert(old_capacity >= 0);
 
     #ifdef BARANOV_V_V_DEBUG
 
-    void* data_tmp = realloc((char*)stack->data_ - sizeof(stack_canary_t), sizeof(Type_t) * new_capacity + 2 * sizeof(stack_canary_t));
+    void* data_tmp = realloc((char*)stack->data_ - sizeof(stack_canary_t), sizeof(Type_t) * stack->capacity_ + 2 * sizeof(stack_canary_t));
     assert(data_tmp != NULL);
 
     stack->data_ = (Type_t*)((char*)data_tmp + sizeof(stack_canary_t));
 
     *(stack_canary_t*)((char*)stack->data_ - sizeof(stack_canary_t)) = STACK_CANARY;
-    *(stack_canary_t*)((char*)stack->data_ + (new_capacity + 1) * sizeof(Type_t)) = STACK_CANARY;
+    *(stack_canary_t*)((char*)stack->data_ + (stack->capacity_ + 1) * sizeof(Type_t)) = STACK_CANARY;
 
     #else
+    //printf("begin realloc\n");
 
-    stack->data_ = (Type_t*) realloc(stack->data_, new_capacity * sizeof(Type_t));
+    //printf("before realloc: pointer to stack: %p\n", stack->data_);
+    //printf("realloc size: %d\n", stack->capacity_);
 
+    //Type_t* data_tmp = (Type_t*) realloc(stack->data_, stack->capacity_ * sizeof(Type_t));
+    //assert(data_tmp != NULL);
+
+    //printf("before calloc\n");
+    Type_t* data_tmp = (Type_t*) calloc(stack->capacity_, sizeof(Type_t));
+    //printf("after calloc\n");
+    assert(data_tmp != NULL);
+
+    for(int i = 0; i < old_capacity; ++i) {
+        data_tmp[i] = stack->data_[i];
+    }
+
+    //printf("done copying realloc\n");
+
+    Type_t* point_del = stack->data_;
+    stack->data_ = data_tmp;
+    //printf("before free realloc\n");
+
+    free(point_del);
+
+    //printf("end_realloc\n");
     #endif
 }
 
@@ -363,8 +371,8 @@ void StackDump(struct StackArray* stack, const char* file_name, FILE* fp, StackE
     fprintf(fp, "    data adress: [%p]\n\n", stack->data_);
 
     #ifdef BARANOV_V_V_DEBUG
-    fprintf(fp, "    Data hash value: %lld\n", stack->data_hash);
-    fprintf(fp, "    Stack hash value: %lld\n\n", stack->stack_hash);
+    //fprintf(fp, "    Data hash value: %lld\n", stack->data_hash);
+    //fprintf(fp, "    Stack hash value: %lld\n\n", stack->stack_hash);
 
     fprintf(fp,"    Canary type |  Initial value   |  Current value\n");
     fprintf(fp,"    Stack begin | %llX | %llX\n", STACK_CANARY, stack->canary_begin);
@@ -430,7 +438,7 @@ Error_t StackIncrease(struct StackArray* stack) {
         return NO_INCREASE;
     }
 
-    StackRealloc(stack, stack->capacity_);
+    StackRealloc(stack, old_capacity);
 
     for(int i = old_capacity; i < stack->capacity_; ++i) {
         stack->data_[i] = NAN;
@@ -463,28 +471,29 @@ Error_t StackDecrease(struct StackArray* stack) {
 Error_t Construct(int start_size, struct StackArray* new_stack) {
     assert(start_size >= 0);
 
-    #ifdef BARANOV_V_V_DEBGU
-    new_stack->canary_begin = CANARY;
-    new_stack->canary_end = CANARY;
+    #ifdef BARANOV_V_V_DEBUG
+    new_stack->canary_begin = STACK_CANARY;
+    new_stack->canary_end = STACK_CANARY;
     #endif // BARANOV_V_V_DEBGU
 
     new_stack->size_ = 0;
+    start_size = start;
     new_stack->capacity_ = start_size;
 
     #ifdef BARANOV_V_V_DEBUG
-
+    printf("begin const realloc\n");
     void* data_tmp = calloc(1, sizeof(Type_t) * start_size + 2 * sizeof(stack_canary_t));
     assert(data_tmp != NULL);
 
     new_stack->data_ = (Type_t*)((char*)data_tmp + sizeof(stack_canary_t));
-
+    printf("done1 const realloc\n");
     *(stack_canary_t*)((char*)new_stack->data_ - sizeof(stack_canary_t)) = STACK_CANARY;
     *(stack_canary_t*)((char*)new_stack->data_ + (start_size + 1) * sizeof(Type_t)) = STACK_CANARY;
-
+    printf("end const realloc\n");
     #else
 
     new_stack->data_ = (Type_t*) calloc(start_size, sizeof(Type_t));
-
+    //printf("constructed pointer: %p\n", new_stack->data_);
     #endif // BARANOV_V_V_DEBUG
 
 
@@ -494,6 +503,7 @@ Error_t Construct(int start_size, struct StackArray* new_stack) {
 
     HASHSTACK(new_stack);
     ASSERT_OK(new_stack);
+
     return SUCCESS;
 }
 
@@ -517,6 +527,7 @@ Error_t Push(struct StackArray* stack, Type_t value) {
     StackIncrease(stack);
     (stack->data_)[stack->size_++] = value;
 
+    //printf("incr\n");
     HASHSTACK(stack);
     ASSERT_OK(stack);
     return SUCCESS;
@@ -540,13 +551,15 @@ Error_t Pop(struct StackArray* stack) {
     assert(stack != NULL);
     ASSERT_OK(stack);
 
-    StackDecrease(stack);
     if (stack->size_ > 0) {
         stack->data_[--stack->size_] = NAN;
     }
     else {
+        exit(1);
         return POP_ERROR;
     }
+
+    //printf("decr\n");
 
     HASHSTACK(stack);
     ASSERT_OK(stack);

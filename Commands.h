@@ -1,47 +1,50 @@
 #pragma once
 
 #include "Stack.h"
+#include <stdint.h>
 
-const int COMMANDS_COUNT = 15;
-const int MAX_COMMAND_LEN = 5;
+enum CommandsCounter {
+    #define DEF_CMD(name_upper, num, arg, code) \
+    COUNT_##name_upper,
+
+    #include "Code_Gen_Gpu.h"
+
+    #undef DEF_CMD
+    COMMANDS_COUNT
+};
+
+//const int COMMANDS_COUNT = MEO + 1;
+const int MAX_COMMAND_LEN = 20;
+const int MAX_LABEL_LENGTH = 20;
+const int MAX_LABELS_COUNT = 1000;
+const int MAX_RECURSION = 1000;
+const int RAM_SIZE = 10000;
+const int BEGIN_JMP_CODES = 15;
+const int END_JMP_CODES = 22;
 
 typedef float type_t;
 typedef uint64_t gpu_canary_t;
 
 const gpu_canary_t GPU_CANARY = 0xBAAADCFEFEBDCBFE;
 
-/*
-enum Commands {
-    HLT      = 0,
-    IN       = 1,
-    OUT      = 2,
-    ADD      = 3,
-    SUB      = 4,
-    MUL      = 5,
-    DIV      = 6,
-    SQR      = 7,
-    SQRT     = 8,
-    SIN      = 9,
-    COS      = 10,
-    PUSH     = 11,
-    POP      = 12,
-    REG_PUSH = 27,
-    REG_POP  = 28,
-};
-*/
 
 enum Commands {
-    #define DEF_CMD(name_upper, name_lower, num, arg, code) \
-    name_upper = num,
+    #define DEF_CMD(name_upper, num, arg, code) \
+    COMMAND_##name_upper = num,
 
     #include "Code_Gen_Gpu.h"
 
     #undef DEF_CMD
 };
 
+typedef struct Command {
+    char name[MAX_COMMAND_LEN];
+    enum Commands code;
+} Command;
+
 static const Command codificator[] {
-    #define DEF_CMD(name_upper, name_lower, num, arg, code) \
-    {#name_lower, name_upper},
+    #define DEF_CMD(name_upper, num, arg, code) \
+    {#name_upper, COMMAND_##name_upper},
 
     #include "Code_Gen_Gpu.h"
 
@@ -50,16 +53,18 @@ static const Command codificator[] {
 
 
 enum Registers {
-    RAX = 1,
-    RBX = 2,
-    RCX = 3,
-    RDX = 4,
+    #define DEF_REG(name_upper, name_lower, num, code) \
+        name_upper = num,
+
+    #include "Registers_Gen.h"
+
+    #undef DEF_REG
 };
 
 struct GPU {
     gpu_canary_t canary_begin;
-
     struct StackArray stack;
+    gpu_canary_t canary_end;
 
     char version;
 
@@ -74,7 +79,16 @@ struct GPU {
     type_t rcx; // 3
     type_t rdx; // 4
 
-    gpu_canary_t canary_end;
+    int* ret_positions;
+    int current_ret;
+
+    type_t* ram;
+
+};
+
+struct Push_values {
+    char rx_type;
+    type_t value;
 };
 
 enum GpuErrors {
@@ -112,6 +126,9 @@ static const char* GpuErrorNames[] = {
     "RDX VALUE IS INVALID"
 };
 
+enum ExitCodes {
+    EXIT_OK = 0,
+};
 
 struct FileHeader {
     char initials[3];
@@ -120,36 +137,7 @@ struct FileHeader {
     int code_size;
 };
 
-typedef struct Command {
-    char name[MAX_COMMAND_LEN];
-    enum Commands code;
-} Command;
-
-static const Command codificator[] {
-    #define DEF_CMD(name_upper, name_lower, num, arg, code) \
-    {#name_lower, name_upper},
-
-    #include "Code_Gen_Gpu.h"
-
-    #undef DEF_CMD
-};
-
-/*
-static const Command codificator[] {
-    {"hlt", HLT},
-    {"in", IN},
-    {"out", OUT},
-    {"add", ADD},
-    {"sub", SUB},
-    {"mul", MUL},
-    {"div", DIV},
-    {"sqr", SQR},
-    {"sqrt", SQRT},
-    {"sin", SIN},
-    {"cos", COS},
-    {"push", PUSH},
-    {"pop", POP},
-    {"push", REG_PUSH},
-    {"pop", REG_POP},
-};
-*/
+typedef struct Label {
+    int pos;
+    char name[MAX_LABEL_LENGTH];
+} Label;

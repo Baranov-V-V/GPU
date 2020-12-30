@@ -26,98 +26,72 @@ struct Files_data {
     int input_length;
 };
 
-// forward отвечает за то что мы ассемблируем(тру) или дизассемблируем(фалсе)
-void OpenTranslationFiles(struct Files_data* files_data, bool is_forward) {
-    assert(files_data != NULL);
+struct AsmInfo {
+    char* buffer;
+    char* code_file;
+    char current_command[MAX_COMMAND_LEN];
 
-    files_data->file_in  = (char*)calloc(MAX_NAME_LEN, sizeof(char));
-    files_data->file_out = (char*)calloc(MAX_NAME_LEN, sizeof(char));
+    int symbols_read;
+    int pos;
+    int asm_number;
+    int commands_counter;
+    int buf_size;
+};
 
-    assert(files_data->file_in  != NULL);
-    assert(files_data->file_out != NULL);
+struct LabelsInfo {
+    Label labels[MAX_LABELS_COUNT];
+    int labels_count;
+};
 
 
-    fprintf(stdout, "file in: ");
-    fscanf(stdin, "%s", files_data->file_in);
+char* ReadToBuffer(Files_data* files_data, int* buf_size);
 
-    if (is_forward == true) {
-        files_data->fp_in = fopen(files_data->file_in,  "r");
-    }
-    else {
-        files_data->fp_in = fopen(files_data->file_in,  "rb");
-    }
-    assert(files_data->fp_in != NULL);
+void Change_Char(char* text, size_t text_size, char old_c, char new_c);
 
-    fprintf(stdout, "file out: ");
-    fscanf(stdin, "%s", files_data->file_out);
+char* UnpackFile(Files_data* files_data, int* pos, int* commands_count);
 
-    if (is_forward == true) {
-        files_data->fp_out = fopen(files_data->file_out, "wb");
-    }
-    else {
-        files_data->fp_out = fopen(files_data->file_out, "w");
-    }
-    assert(files_data->fp_out != NULL);
+void UpdateCodeFile(char* code_file, int commands_count, int pos);
 
-    struct stat info;
-    stat(files_data->file_in, &info);
-    files_data->input_length = info.st_size;
-}
+char* ConstructCodeFile(Files_data* files_data, int current_version, int* file_pos);
 
-void CloseFiles(struct Files_data* files_data) {
-    assert(files_data != NULL);
+void CloseFiles(struct Files_data* files_data);
 
-    fclose(files_data->fp_in);
-           files_data->fp_in  = NULL;
-    fclose(files_data->fp_out);
-           files_data->fp_out = NULL;
+void OpenTranslationFiles(struct Files_data* files_data, bool is_forward);
 
-    free(files_data->file_in);
-         files_data->file_in  = NULL;
-    free(files_data->file_out);
-         files_data->file_out = NULL;
-}
+void FindLabel(struct AsmInfo* asm_info, struct LabelsInfo* labels_info);
 
-char* ConstructCodeFile(Files_data* files_data, int current_version, int* file_pos) {
-    char* code_file = (char*) calloc(sizeof(FileHeader) + files_data->input_length * (sizeof(char) + sizeof(type_t)), 1);//домножаем как будто у нас все пуши
+void MarkJumpPos(struct AsmInfo* asm_info, int jump_no);
 
-    FileHeader* file_header = (FileHeader*) code_file;
+void GetNewAsmCommand(struct AsmInfo* asm_info);
 
-    file_header->initials[0] = 'B';
-    file_header->initials[1] = 'V';
-    file_header->initials[2] = 'V';
+void GetNewString(struct AsmInfo* asm_info, char* tmp_command);
 
-    file_header->version = current_version;
-    file_header->commands_count = 0;
+void GetPop(struct AsmInfo* asm_info);
 
-    *file_pos = sizeof(FileHeader);
+void GetRegPush(struct AsmInfo* asm_info, char* register_name);
 
-    //printf("%c%c%c\n",code_file[0],code_file[1],code_file[2]);
+void GetValuePush(struct AsmInfo* asm_info, char* push_value);
 
-    return code_file;
-}
+void GetPush(struct AsmInfo* asm_info);
 
-void UpdateCodeFile(char* code_file, int commands_count, int pos) {
-    FileHeader* file_header = (FileHeader*) code_file;
+void GetJmp(struct AsmInfo* asm_info, struct LabelsInfo* labels_info, int jump_no);
 
-    file_header->commands_count = commands_count;
-    file_header->code_size = pos - sizeof(FileHeader);
-}
+void EmplaceLabel(struct LabelsInfo* labels_info, struct AsmInfo* asm_info);
 
-char* UnpackFile(Files_data* files_data, int* pos, int* commands_count) {
-    char* code_file = (char*) calloc(files_data->input_length, sizeof(char));
-    fread(code_file, files_data->input_length, 1, files_data->fp_in);
+void GetCommands(struct AsmInfo* asm_info, struct LabelsInfo* labels_info);
 
-    printf("input len: %d", files_data->input_length);
+void MakeAsmInfo(struct AsmInfo* asm_info, struct Files_data* files_data);
 
-    FileHeader* file_header = (FileHeader*) code_file;
+void ChangeAsmNumber(struct AsmInfo* asm_info, int asm_number);
 
-    fprintf(files_data->fp_out,"Current version: %hhd\n", file_header->version);
-    fprintf(files_data->fp_out,"Total commands count: %d\n", file_header->commands_count);
-    fprintf(files_data->fp_out,"Commands code size in bytes: %d\n", file_header->code_size);
+void Assembly(struct AsmInfo* asm_info, struct LabelsInfo* labels_info);
 
-    *pos = sizeof(FileHeader);
-    *commands_count = file_header->commands_count;
+void ProceedPushPop(struct AsmInfo* asm_info, char* push_index, char* push_value, struct Push_values* push_values);
 
-    return code_file;
-}
+void MakePushPop(struct AsmInfo* asm_info, struct Push_values* push_values, char push_index);
+
+void PushPop128(char* push_index, char** push_value);
+
+void PushPop64(char* push_index, char* push_value, struct Push_values* push_values, struct AsmInfo* asm_info);
+
+void PushPop32(char* push_index, char* push_value, struct Push_values* push_values);

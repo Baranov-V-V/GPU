@@ -1,20 +1,25 @@
+//#include "TXLib.h"
 #include "Calc.h"
-#include "Ñalc_functions.cpp"
+#include "Calc_functions.cpp"
 #include "Gpu_functuons.cpp"
 
 int main() {
-    struct GPU Gpu;
+    setlocale(LC_ALL, "Russian");
+
+    struct GPU Gpu = {};
     GpuActivation(&Gpu);
 
+    char* file_in = (char*) calloc(100, 1);
     printf("file in: ");
     scanf("%s", file_in);
     FILE* fp_in = NULL;
-
-    GpuUpdate(&Gpu, file_in, fp_in);
-
+    //printf("done");
+    GpuUpdate(&Gpu, file_in, &fp_in);
+    //printf("done2");
     Calculate(&Gpu);
+    exit(0);
+    //printf("done3");
 
-    fclose(fp_in);
+    return 0;
+}
 
-    GpuShutdown(&Gpu);
- }
